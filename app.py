@@ -42,7 +42,42 @@ def authenticate_user(user_id, password):
         conn.close()
 
 # User creation
-def create_user(user_id, password, role, name, email, semester=None, branch=None, section=None):
+# def create_user(user_id, password, role, name, email, semester=None, branch=None, section=None,course_id=None, course_name=None):
+#     conn = get_db_connection()
+#     if not conn:
+#         return False
+
+#     try:
+#         cursor = conn.cursor()
+#         hashed_password = hash_password(password)
+
+#         # Insert into users table
+#         cursor.execute("""
+#             INSERT INTO users (user_id, password, role, name, email)
+#             VALUES (%s, %s, %s, %s, %s)
+#         """, (user_id, hashed_password, role, name, email))
+
+#         # If the role is 'student', insert into the students table
+#         if role == 'student':
+#             cursor.execute("""
+#                 INSERT INTO students (srn, semester, branch, section)
+#                 VALUES (%s, %s, %s, %s)
+#             """, (user_id, semester, branch, section))
+#         if role == 'faculty':
+#             cursor.execute("""
+#                 INSERT INTO courses (course_id, course_name, faculty_id)
+#                 VALUES (%s, %s, %s)
+#             """, (course_id, course_name, user_id))
+
+#         conn.commit()
+#         return True
+#     except Exception as e:
+#         st.error(f"Error creating user: {e}")
+#         return False
+#     finally:
+#         cursor.close()
+#         conn.close()
+def create_user(user_id, password, role, name, email, semester=None, branch=None, section=None, course_id=None, course_name=None):
     conn = get_db_connection()
     if not conn:
         return False
@@ -64,6 +99,15 @@ def create_user(user_id, password, role, name, email, semester=None, branch=None
                 VALUES (%s, %s, %s, %s)
             """, (user_id, semester, branch, section))
 
+        # If the role is 'faculty', insert into the courses table
+        elif role == 'faculty':
+            # Insert course for the faculty member
+            if course_id and course_name:  # Ensure course details are provided
+                cursor.execute("""
+                    INSERT INTO courses (course_id, course_name, faculty_id)
+                    VALUES (%s, %s, %s)
+                """, (course_id, course_name, user_id))  # Use user_id as faculty_id
+
         conn.commit()
         return True
     except Exception as e:
@@ -72,6 +116,7 @@ def create_user(user_id, password, role, name, email, semester=None, branch=None
     finally:
         cursor.close()
         conn.close()
+
 
 # Admin Dashboard
 def show_admin_dashboard():
@@ -88,7 +133,40 @@ def show_admin_dashboard():
     with tab3:
         view_enrollments()
 
+    with tab4:
+        enroll_students()
+
 # Register User
+# def register_user():
+#     st.subheader("Register New User")
+#     role = st.selectbox("Role", ["Student", "Faculty", "Admin"], key="register_user_role")
+#     name = st.text_input("Name", key="register_user_name")
+#     email = st.text_input("Email", key="register_user_email")
+#     user_id = st.text_input("User ID", key="register_user_id")
+#     password = st.text_input("Password", type="password", key="register_user_password")
+
+#     # If the role is 'student', ask for additional details
+#     semester = branch = section = None
+#     course_id = course_name = None
+
+#     if role == "Student":
+#         semester = st.number_input("Semester", min_value=1, max_value=8, step=1, key="register_user_semester")
+#         branch = st.text_input("Branch", key="register_user_branch")
+#         section = st.text_input("Section", key="register_user_section")
+#     if role=='Faculty':
+#         course_id=st.text_input("CourseID",key="course_id")
+#         course_name=st.text_input("Course_name",key="course_name")
+#     if st.button("Register User", key="register_user_button"):
+#         if role=="Faculty":
+#             if create_user(user_id,password, role.lower(), name, email, course_id=course_id, course_name=course_name):
+#                 st.success("User registered successfully!")
+#             else:
+#                 st.error("Failed to register user.")
+#         else:
+#             if create_user(user_id, password, role.lower(), name, email, semester, branch, section):
+#                 st.success("User registered successfully!")
+#             else:
+#                 st.error("Failed to register user.")
 def register_user():
     st.subheader("Register New User")
     role = st.selectbox("Role", ["Student", "Faculty", "Admin"], key="register_user_role")
@@ -103,9 +181,15 @@ def register_user():
         semester = st.number_input("Semester", min_value=1, max_value=8, step=1, key="register_user_semester")
         branch = st.text_input("Branch", key="register_user_branch")
         section = st.text_input("Section", key="register_user_section")
-
+    
+    # If the role is 'Faculty', ask for course details
+    course_id = course_name = None
+    if role == 'Faculty':
+        course_id = st.text_input("CourseID", key="course_id")
+        course_name = st.text_input("Course Name", key="course_name")
+    
     if st.button("Register User", key="register_user_button"):
-        if create_user(user_id, password, role.lower(), name, email, semester, branch, section):
+        if create_user(user_id, password, role.lower(), name, email, semester, branch, section, course_id, course_name):
             st.success("User registered successfully!")
         else:
             st.error("Failed to register user.")
@@ -137,6 +221,97 @@ def view_enrollments():
     conn.close()
 
     st.table(enrollments)
+
+# Admin Dashboard
+def show_admin_dashboard():
+    st.header("Admin Dashboard")
+    
+    tab1, tab2, tab3, tab4 = st.tabs(["Register User", "Manage Users", "View Enrollments", "Enroll Students"])
+    
+    with tab1:
+        register_user()
+    
+    with tab2:
+        manage_users()
+    
+    with tab3:
+        view_enrollments()
+    
+    with tab4:
+        enroll_student()  # Add enroll_student functionality here
+# Get all students
+def get_all_students():
+    conn = get_db_connection()
+    if not conn:
+        return []
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT srn FROM students")
+        students = [row[0] for row in cursor.fetchall()]
+        return students
+    finally:
+        cursor.close()
+        conn.close()
+
+# Get all courses
+def get_all_courses():
+    conn = get_db_connection()
+    if not conn:
+        return []
+    
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT course_id FROM courses")
+        courses = [row[0] for row in cursor.fetchall()]
+        return courses
+    finally:
+        cursor.close()
+        conn.close()
+
+# Enroll Students functionality
+def enroll_student():
+    st.subheader("Enroll Student in a Course")
+    
+    # Select Student (choose from existing students)
+    students = get_all_students()  # This function retrieves all students
+    student_id = st.selectbox("Select Student", students, key="student_select")
+    
+    # Select Course (choose from available courses)
+    courses = get_all_courses()  # This function retrieves all courses
+    course_id = st.selectbox("Select Course", courses, key="course_select")
+    
+    # Button to enroll
+    if st.button("Enroll Student", key="enroll_student_button"):
+        if enroll_in_course(student_id, course_id):
+            st.success(f"Student {student_id} enrolled in course {course_id}!")
+        else:
+            st.error("Failed to enroll student in the course.")
+
+# Existing enroll_in_course function remains the same
+def enroll_in_course(student_id, course_id):
+    conn = get_db_connection()
+    if not conn:
+        return False
+    
+    try:
+        cursor = conn.cursor()
+        
+        # Insert the student into the student_courses table
+        cursor.execute("""
+            INSERT INTO student_courses (srn, course_id)
+            VALUES (%s, %s)
+        """, (student_id, course_id))
+        
+        conn.commit()
+        return True
+    except Exception as e:
+        st.error(f"Error enrolling student: {e}")
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
 
 # Student Dashboard
 def show_student_dashboard():
@@ -323,6 +498,7 @@ def upload_assignment():
         conn.close()
 
         st.success("Assignment uploaded successfully!")
+
 def view_enrolled_students():
     st.subheader("Enrolled Students")
     
