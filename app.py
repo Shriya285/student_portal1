@@ -122,7 +122,7 @@ def create_user(user_id, password, role, name, email, semester=None, branch=None
 def show_admin_dashboard():
     st.header("Admin Dashboard")
     
-    tab1, tab2, tab3 = st.tabs(["Register User", "Manage Users", "View Enrollments"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Register User", "Manage Users", "View Enrollments","Enroll Students"])
     
     with tab1:
         register_user()
@@ -134,7 +134,7 @@ def show_admin_dashboard():
         view_enrollments()
 
     with tab4:
-        enroll_students()
+        enroll_student()
 
 # Register User
 # def register_user():
